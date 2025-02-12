@@ -11,12 +11,10 @@ ENV APP_NAME="Stardew Dedicated Server" \
     DEBIAN_FRONTEND=noninteractive \
     TERMINAL=xterm \
     DARK_MODE=1 \
-    # Display
     DISPLAY=:0 \
     DISPLAY_HEIGHT=800 \
     DISPLAY_WIDTH=1280 \
     DISABLE_RENDERING=true\
-    # SMAPI
     SMAPI_USE_CURRENT_SHELL=true \
     SMAPI_VERSION=4.1.10 \
     SMAPI_MODS_PATH=/data/Mods
@@ -93,88 +91,85 @@ COPY .output/mods /data/Mods
 # Copy remaining files 
 COPY docker/rootfs/ /
 
-# Embed the patched xvnc parameters file.
-# This RUN command writes the file to /etc/services.d/xvnc/params without the problematic option.
-RUN /bin/sh -c 'cat << "EOF" > /etc/services.d/xvnc/params
-#!/bin/sh
-
-set -u # Treat unset variables as an error.
-
-# Activate debug logging.
-if is-bool-val-true "${CONTAINER_DEBUG:-0}"; then
-    echo "-Log"
-    echo "*:stderr:100"
-    echo "-verbose"
-    echo "10"
-fi
-
-# Make sure the X server listens on Unix only.
-echo "-nolisten"
-echo "tcp"
-echo "-nolisten"
-echo "local"
-echo "-listen"
-echo "unix"
-
-# Window size.
-echo "-geometry"
-echo "${DISPLAY_WIDTH}x${DISPLAY_HEIGHT}"
-
-# Color depth.
-echo "-depth"
-echo "24"
-
-# VNC listening port.
-if [ "${VNC_LISTENING_PORT:-5900}" -eq -1 ]; then
-    echo "-rfbport=-1"
-elif is-bool-val-true "${SECURE_CONNECTION:-0}" && [ "${SECURE_CONNECTION_VNC_METHOD:-SSL}" = "SSL" ]; then
-    echo "-rfbport=-1"
-else
-    echo "-rfbport=${VNC_LISTENING_PORT:-5900}"
-    if ifconfig -a | grep -wq inet6; then
-        echo "-UseIPv6=yes"
-    else
-        echo "-UseIPv6=no"
-    fi
-fi
-
-# VNC Unix socket.
-echo "-rfbunixpath=/tmp/vnc.sock"
-echo "-rfbunixmode=0660"
-
-# VNC security.
-PASSWORD_FILE=
-if [ -f /config/.vncpass ] && [ -n "$(cat /config/.vncpass)" ]; then
-    PASSWORD_FILE=/config/.vncpass
-elif [ -f /tmp/.vncpass ] && [ -n "$(cat /tmp/.vncpass)" ]; then
-    PASSWORD_FILE=/tmp/.vncpass
-fi
-
-if [ -n "$PASSWORD_FILE" ]; then
-    if is-bool-val-false "${SECURE_CONNECTION:-0}" || [ "${SECURE_CONNECTION_VNC_METHOD:-SSL}" = "SSL" ]; then
-        echo "-SecurityTypes=VncAuth"
-    else
-        echo "-SecurityTypes=X509Vnc,TLSVnc"
-    fi
-    echo "-rfbauth=$PASSWORD_FILE"
-else
-    if is-bool-val-false "${SECURE_CONNECTION:-0}" || [ "${SECURE_CONNECTION_VNC_METHOD:-SSL}" = "SSL" ]; then
-        echo "-SecurityTypes=None"
-    else
-        echo "-SecurityTypes=X509None,TLSNone"
-    fi
-    echo "-InternalConnectionSecurityTypes=None"
-fi
-
-if is-bool-val-true "${SECURE_CONNECTION:-0}" && [ "${SECURE_CONNECTION_VNC_METHOD:-SSL}" != "SSL" ]; then
-    echo "-X509Key"
-    echo "/config/certs/vnc-privkey.pem"
-    echo "-X509Cert"
-    echo "/config/certs/vnc-fullchain.pem"
-fi
-
-echo "-desktop=$APP_NAME"
-echo "$DISPLAY"
-EOF'
+# Embed the patched xvnc parameters file by writing it line-by-line.
+RUN /bin/sh -c "\
+echo '#!/bin/sh' > /etc/services.d/xvnc/params && \
+echo 'set -u # Treat unset variables as an error.' >> /etc/services.d/xvnc/params && \
+echo '' >> /etc/services.d/xvnc/params && \
+echo '# Activate debug logging.' >> /etc/services.d/xvnc/params && \
+echo 'if is-bool-val-true \"${CONTAINER_DEBUG:-0}\"; then' >> /etc/services.d/xvnc/params && \
+echo '    echo \"-Log\"' >> /etc/services.d/xvnc/params && \
+echo '    echo \"*:stderr:100\"' >> /etc/services.d/xvnc/params && \
+echo '    echo \"-verbose\"' >> /etc/services.d/xvnc/params && \
+echo '    echo \"10\"' >> /etc/services.d/xvnc/params && \
+echo 'fi' >> /etc/services.d/xvnc/params && \
+echo '' >> /etc/services.d/xvnc/params && \
+echo '# Make sure the X server listens on Unix only.' >> /etc/services.d/xvnc/params && \
+echo 'echo \"-nolisten\"' >> /etc/services.d/xvnc/params && \
+echo 'echo \"tcp\"' >> /etc/services.d/xvnc/params && \
+echo 'echo \"-nolisten\"' >> /etc/services.d/xvnc/params && \
+echo 'echo \"local\"' >> /etc/services.d/xvnc/params && \
+echo 'echo \"-listen\"' >> /etc/services.d/xvnc/params && \
+echo 'echo \"unix\"' >> /etc/services.d/xvnc/params && \
+echo '' >> /etc/services.d/xvnc/params && \
+echo '# Window size.' >> /etc/services.d/xvnc/params && \
+echo 'echo \"-geometry\"' >> /etc/services.d/xvnc/params && \
+echo 'echo \"${DISPLAY_WIDTH}x${DISPLAY_HEIGHT}\"' >> /etc/services.d/xvnc/params && \
+echo '' >> /etc/services.d/xvnc/params && \
+echo '# Color depth.' >> /etc/services.d/xvnc/params && \
+echo 'echo \"-depth\"' >> /etc/services.d/xvnc/params && \
+echo 'echo \"24\"' >> /etc/services.d/xvnc/params && \
+echo '' >> /etc/services.d/xvnc/params && \
+echo '# VNC listening port.' >> /etc/services.d/xvnc/params && \
+echo 'if [ \"${VNC_LISTENING_PORT:-5900}\" -eq -1 ]; then' >> /etc/services.d/xvnc/params && \
+echo '    echo \"-rfbport=-1\"' >> /etc/services.d/xvnc/params && \
+echo 'elif is-bool-val-true \"${SECURE_CONNECTION:-0}\" && [ \"${SECURE_CONNECTION_VNC_METHOD:-SSL}\" = \"SSL\" ]; then' >> /etc/services.d/xvnc/params && \
+echo '    echo \"-rfbport=-1\"' >> /etc/services.d/xvnc/params && \
+echo 'else' >> /etc/services.d/xvnc/params && \
+echo '    echo \"-rfbport=${VNC_LISTENING_PORT:-5900}\"' >> /etc/services.d/xvnc/params && \
+echo '    if ifconfig -a | grep -wq inet6; then' >> /etc/services.d/xvnc/params && \
+echo '        echo \"-UseIPv6=yes\"' >> /etc/services.d/xvnc/params && \
+echo '    else' >> /etc/services.d/xvnc/params && \
+echo '        echo \"-UseIPv6=no\"' >> /etc/services.d/xvnc/params && \
+echo '    fi' >> /etc/services.d/xvnc/params && \
+echo 'fi' >> /etc/services.d/xvnc/params && \
+echo '' >> /etc/services.d/xvnc/params && \
+echo '# VNC Unix socket.' >> /etc/services.d/xvnc/params && \
+echo 'echo \"-rfbunixpath=/tmp/vnc.sock\"' >> /etc/services.d/xvnc/params && \
+echo 'echo \"-rfbunixmode=0660\"' >> /etc/services.d/xvnc/params && \
+echo '' >> /etc/services.d/xvnc/params && \
+echo '# VNC security.' >> /etc/services.d/xvnc/params && \
+echo 'PASSWORD_FILE=' >> /etc/services.d/xvnc/params && \
+echo 'if [ -f /config/.vncpass ] && [ -n \"$(cat /config/.vncpass)\" ]; then' >> /etc/services.d/xvnc/params && \
+echo '    PASSWORD_FILE=/config/.vncpass' >> /etc/services.d/xvnc/params && \
+echo 'elif [ -f /tmp/.vncpass ] && [ -n \"$(cat /tmp/.vncpass)\" ]; then' >> /etc/services.d/xvnc/params && \
+echo '    PASSWORD_FILE=/tmp/.vncpass' >> /etc/services.d/xvnc/params && \
+echo 'fi' >> /etc/services.d/xvnc/params && \
+echo '' >> /etc/services.d/xvnc/params && \
+echo 'if [ -n "$PASSWORD_FILE" ]; then' >> /etc/services.d/xvnc/params && \
+echo '    if is-bool-val-false "${SECURE_CONNECTION:-0}" || [ "${SECURE_CONNECTION_VNC_METHOD:-SSL}" = "SSL" ]; then' >> /etc/services.d/xvnc/params && \
+echo '        echo "-SecurityTypes=VncAuth"' >> /etc/services.d/xvnc/params && \
+echo '    else' >> /etc/services.d/xvnc/params && \
+echo '        echo "-SecurityTypes=X509Vnc,TLSVnc"' >> /etc/services.d/xvnc/params && \
+echo '    fi' >> /etc/services.d/xvnc/params && \
+echo '    echo "-rfbauth=$PASSWORD_FILE"' >> /etc/services.d/xvnc/params && \
+echo 'else' >> /etc/services.d/xvnc/params && \
+echo '    if is-bool-val-false "${SECURE_CONNECTION:-0}" || [ "${SECURE_CONNECTION_VNC_METHOD:-SSL}" = "SSL" ]; then' >> /etc/services.d/xvnc/params && \
+echo '        echo "-SecurityTypes=None"' >> /etc/services.d/xvnc/params && \
+echo '    else' >> /etc/services.d/xvnc/params && \
+echo '        echo "-SecurityTypes=X509None,TLSNone"' >> /etc/services.d/xvnc/params && \
+echo '    fi' >> /etc/services.d/xvnc/params && \
+echo '    echo "-InternalConnectionSecurityTypes=None"' >> /etc/services.d/xvnc/params && \
+echo 'fi' >> /etc/services.d/xvnc/params && \
+echo '' >> /etc/services.d/xvnc/params && \
+echo 'if is-bool-val-true "${SECURE_CONNECTION:-0}" && [ "${SECURE_CONNECTION_VNC_METHOD:-SSL}" != "SSL" ]; then' >> /etc/services.d/xvnc/params && \
+echo '    echo "-X509Key"' >> /etc/services.d/xvnc/params && \
+echo '    echo "/config/certs/vnc-privkey.pem"' >> /etc/services.d/xvnc/params && \
+echo '    echo "-X509Cert"' >> /etc/services.d/xvnc/params && \
+echo '    echo "/config/certs/vnc-fullchain.pem"' >> /etc/services.d/xvnc/params && \
+echo 'fi' >> /etc/services.d/xvnc/params && \
+echo 'echo "-desktop=$APP_NAME"' >> /etc/services.d/xvnc/params && \
+echo 'echo "$DISPLAY"' >> /etc/services.d/xvnc/params
+  
 
 WORKDIR /data
