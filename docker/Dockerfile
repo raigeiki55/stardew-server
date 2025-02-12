@@ -92,7 +92,7 @@ RUN \
     rm -rf /var/lib/apt/lists/* && \
     # Fix stuck dbus statoverride
     rm /var/lib/dpkg/statoverride && \
-    # Prevent uneccessary logs
+    # Prevent unnecessary logs
     rm /etc/cont-init.d/89-info.sh && \
     # Prevent overriding OpenGL drivers
     rm -rf /etc/cont-env.d/LIBGL_DRIVERS_PATH
@@ -103,11 +103,8 @@ COPY .output/mods /data/Mods
 # Copy remaining files 
 COPY docker/rootfs/ /
 
-# Patch the xvnc startup script to remove the problematic option
-RUN if [ -f /etc/services.d/xvnc/run ]; then \
-      sed -i 's/-InternalConnectionSecurityTypes=VncAuth//g' /etc/services.d/xvnc/run; \
-    fi
-
-VOLUME [ "/data/Stardew", "/config/xdg/config/StardewValley" ]
+# Patch any xvnc startup scripts to remove the problematic option.
+# This recursively finds and removes the '-InternalConnectionSecurityTypes=VncAuth' string.
+RUN find /etc/services.d/xvnc -type f -exec sed -i 's/-InternalConnectionSecurityTypes=VncAuth//g' {} \;
 
 WORKDIR /data
