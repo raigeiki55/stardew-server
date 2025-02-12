@@ -94,8 +94,8 @@ COPY .output/mods /data/Mods
 COPY docker/rootfs/ /
 
 # Embed the patched xvnc parameters file.
-# This version omits any line that would emit "-InternalConnectionSecurityTypes=VncAuth".
-RUN /bin/sh -c "cat > /etc/services.d/xvnc/params << 'EOF'
+# This RUN command writes the file to /etc/services.d/xvnc/params
+RUN /bin/sh -c "cat <<'EOF' > /etc/services.d/xvnc/params
 #!/bin/sh
 
 set -u # Treat unset variables as an error.
